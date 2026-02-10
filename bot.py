@@ -49,6 +49,7 @@ TEXTS = {
     "reminder": "Завтра сессия с тьютором)",
     "btn_curator": "Написать куратору",
     "curator_no_link": "Ссылка на куратора не настроена. Обратись к организаторам курса.",
+    "reset_done": "Готово. Твоя запись сброшена. Нажми /start — увидишь приветствие и сможешь записаться заново.",
     "btn_back_menu": "← В меню",
     "btn_prev_page": "← Пред.",
     "btn_next_page": "След. →",
@@ -276,6 +277,13 @@ async def button_curator(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.edit_message_text(TEXTS["curator_no_link"])
 
 
+async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /reset: удалить свою запись и снова увидеть приветствие (для теста или сброса)."""
+    user_id = update.effective_user.id if update.effective_user else 0
+    storage.delete_booking(user_id)
+    await update.message.reply_text(TEXTS["reset_done"])
+
+
 def main() -> None:
     token = os.getenv("BOT_TOKEN")
     if not token:
@@ -286,6 +294,7 @@ def main() -> None:
 
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("reset", reset_cmd))
     app.add_handler(CallbackQueryHandler(button_choose_time, pattern="^choose_time$"))
     app.add_handler(CallbackQueryHandler(button_slots_page, pattern="^slots_page:"))
     app.add_handler(CallbackQueryHandler(button_back_to_start, pattern="^back_to_start$"))

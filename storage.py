@@ -79,6 +79,14 @@ def save_booking(user_id: int, slot_id: str):
     conn.close()
 
 
+def delete_booking(user_id: int):
+    """Удаляет запись пользователя (для сброса / теста)."""
+    conn = get_connection()
+    conn.execute("DELETE FROM bookings WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
 def get_slots_with_availability():
     """
     Список слотов с полями: id, day, time, capacity, booked, free.
