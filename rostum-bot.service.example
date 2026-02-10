@@ -1,0 +1,19 @@
+# Пример unit для systemd.
+# Скопируй на сервер: sudo cp rostum-bot.service.example /etc/systemd/system/rostum-bot.service
+# Замени YOUR_USER на имя пользователя (например root или ubuntu) и путь к папке бота при необходимости.
+# Затем: sudo systemctl daemon-reload && sudo systemctl enable rostum-bot && sudo systemctl start rostum-bot
+
+[Unit]
+Description=Ростум ЕГЭ — бот записи на тьюторские сессии
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/rostum-bot
+ExecStart=/home/YOUR_USER/rostum-bot/.venv/bin/python bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

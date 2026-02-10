@@ -1,0 +1,15 @@
+[
+  {"id": "thu_18", "day": "четверг", "time": "18:00", "capacity": 1},
+  {"id": "thu_1830", "day": "четверг", "time": "18:30", "capacity": 1},
+  {"id": "thu_19", "day": "четверг", "time": "19:00", "capacity": 1},
+  {"id": "thu_1930", "day": "четверг", "time": "19:30", "capacity": 1},
+  {"id": "thu_20", "day": "четверг", "time": "20:00", "capacity": 1},
+  {"id": "fri_18", "day": "пятница", "time": "18:00", "capacity": 1},
+  {"id": "fri_1830", "day": "пятница", "time": "18:30", "capacity": 1},
+  {"id": "fri_19", "day": "пятница", "time": "19:00", "capacity": 1},
+  {"id": "fri_1930", "day": "пятница", "time": "19:30", "capacity": 1},
+  {"id": "fri_20", "day": "пятница", "time": "20:00", "capacity": 1},
+  {"id": "tue_1830", "day": "вторник", "time": "18:30", "capacity": 1},
+  {"id": "thu_19_t2", "day": "четверг", "time": "19:00", "capacity": 1},
+  {"id": "fri_19_t2", "day": "пятница", "time": "19:00", "capacity": 1}
+]
