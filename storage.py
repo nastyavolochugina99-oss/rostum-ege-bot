@@ -66,8 +66,23 @@ def get_user_booking(user_id: int):
     return {"slot_id": row["slot_id"], "created_at": row["created_at"]}
 
 
-def save_booking(user_id: int, slot_id: str):
-    """Записывает или обновляет запись пользователя на слот."""
+def save_booking(user_id: int, slot_id: str) -> bool:
+    """
+    Записывает или обновляет запись пользователя на слот.
+    Возвращает True при успехе. False, если слот уже заполнен (защита от гонки).
+    """
+    slots = {s["id"]: s for s in load_slots()}
+    slot = slots.get(slot_id)
+    if not slot:
+        return False
+    capacity = int(slot.get("capacity", 1))
+    counts = get_booking_count_per_slot()
+    # Уже записанный в этот слот пользователь при смене слота освобождает место
+    current = get_user_booking(user_id)
+    current_in_slot = current and current["slot_id"] == slot_id
+    booked = counts.get(slot_id, 0)
+    if not current_in_slot and booked >= capacity:
+        return False
     now = datetime.utcnow().isoformat() + "Z"
     conn = get_connection()
     conn.execute(
@@ -77,6 +92,7 @@ def save_booking(user_id: int, slot_id: str):
     )
     conn.commit()
     conn.close()
+    return True
 
 
 def delete_booking(user_id: int):
@@ -89,8 +105,7 @@ def delete_booking(user_id: int):
 
 def get_slots_with_availability():
     """
-    Список слотов с полями: id, day, time, capacity, booked, free.
-    Только слоты, где ещё есть свободные места.
+    Список всех слотов с полями: id, day, time, capacity, booked, free.
     """
     slots = load_slots()
     counts = get_booking_count_per_slot()
@@ -111,6 +126,49 @@ def get_slots_with_availability():
 def get_available_slots_for_choice():
     """Слоты, на которые ещё можно записаться (free > 0)."""
     return [s for s in get_slots_with_availability() if s["free"] > 0]
+
+
+def get_days_with_available_slots():
+    """Дни недели, в которые есть хотя бы один свободный слот (порядок: пн–вс)."""
+    order = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+    available = get_available_slots_for_choice()
+    days_set = {s["day"].lower().strip() for s in available}
+    return [d for d in order if d in days_set]
+
+
+def get_available_groups_for_day(day: str):
+    """
+    По одному пункту на (день, время): сумма свободных мест по всем слотам с этим временем.
+    Возвращает список {"day", "time", "free"} без имени тьютора.
+    """
+    slots = get_slots_with_availability()
+    day_norm = day.lower().strip()
+    by_key = {}
+    for s in slots:
+        if s["day"].lower().strip() != day_norm or s["free"] <= 0:
+            continue
+        key = (s["day"], s["time"])
+        by_key[key] = by_key.get(key, 0) + s["free"]
+    result = [{"day": d, "time": t, "free": f} for (d, t), f in by_key.items()]
+    result.sort(key=lambda x: x["time"])
+    return result
+
+
+def get_available_slot_ids_for_day_time(day: str, time_str: str) -> list:
+    """Все slot_id с данным днём и временем, у которых есть свободное место (для повторных попыток при гонке)."""
+    slots = get_available_slots_for_choice()
+    day_norm = day.lower().strip()
+    time_norm = time_str.strip()
+    return [
+        s["id"] for s in slots
+        if s["day"].lower().strip() == day_norm and s["time"].strip() == time_norm
+    ]
+
+
+def get_any_available_slot_id_for_day_time(day: str, time_str: str):
+    """Любой slot_id с данным днём и временем, у которого есть свободное место."""
+    ids = get_available_slot_ids_for_day_time(day, time_str)
+    return ids[0] if ids else None
 
 
 def get_all_bookings():
