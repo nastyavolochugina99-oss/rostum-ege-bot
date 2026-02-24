@@ -339,7 +339,7 @@ async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def zapisi_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /записи: список всех записей (только для админов из ADMIN_IDS)."""
+    """Команда /zapisi: список всех записей (только для админов из ADMIN_IDS)."""
     user_id = update.effective_user.id if update.effective_user else 0
     if user_id not in _admin_ids():
         await update.message.reply_text(TEXTS["list_denied"])
@@ -377,7 +377,7 @@ def main() -> None:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("reset", reset_cmd))
-    app.add_handler(CommandHandler("записи", zapisi_cmd))
+    app.add_handler(CommandHandler("zapisi", zapisi_cmd))
     app.add_handler(CallbackQueryHandler(button_choose_time, pattern="^choose_time$"))
     app.add_handler(CallbackQueryHandler(button_day_selected, pattern="^day:"))
     app.add_handler(CallbackQueryHandler(button_back_to_days, pattern="^back_to_days$"))
