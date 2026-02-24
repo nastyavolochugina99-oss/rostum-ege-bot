@@ -47,9 +47,12 @@ def _cycle_start_date() -> datetime.date:
 # Тексты (можно вынести в конфиг)
 TEXTS = {
     "welcome": (
-        "Привет! Это запись на тьюторские сессии курса ЕГЭ.\n\n"
-        "Сессии проходят 1 раз в две недели по 30 минут. Выбери удобное время — "
-        "оно будет закреплено за тобой на весь курс."
+        "Привет! Это бот для записи на тьюторские сессии.\n\n"
+        "Тьютор помогает с мотивацией, фокусом и планом на курсе — "
+        "<b>встречи онлайн, индивидуально, 30 минут, раз в 2 недели.</b>\n\n"
+        "<b>Выбери одно удобное время (один слот)</b> — оно закрепляется за тобой на весь курс. "
+        "Переносов и отмен нет, поэтому выбирай внимательно. "
+        "Если не можешь прийти — предупреди куратора заранее."
     ),
     "btn_choose": "Выбрать время сессии",
     "already_booked": "Ты уже записан на тьюторские сессии: {day} в {time}.",
@@ -226,7 +229,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     storage.init_db()
     user_id = update.effective_user.id if update.effective_user else 0
     text, keyboard = _start_keyboard(user_id)
-    await update.message.reply_text(text, reply_markup=keyboard)
+    await update.message.reply_text(text, parse_mode="HTML", reply_markup=keyboard)
 
 
 async def _show_times_for_day(update: Update, day: str) -> None:
@@ -269,7 +272,7 @@ async def button_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     user_id = update.effective_user.id if update.effective_user else 0
     text, keyboard = _start_keyboard(user_id)
-    await query.edit_message_text(text, reply_markup=keyboard)
+    await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
 
 
 async def button_slot_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
