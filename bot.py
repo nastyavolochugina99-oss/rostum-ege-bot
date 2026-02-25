@@ -14,7 +14,9 @@ from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
 )
 
 import storage
@@ -58,6 +60,9 @@ TEXTS = {
     "already_booked": "Ты уже записан на тьюторские сессии: {day} в {time}.",
     "choose_slot": "Выбери удобное окно (свободных мест в скобках):",
     "choose_day": "Выбери день недели:",
+    "ask_name": "Перед выбором времени напиши, пожалуйста, имя и фамилию одним сообщением.\n\nПример: Иван Петров",
+    "ask_name_invalid": "Нужно указать имя и фамилию (минимум 2 слова). Попробуй ещё раз.",
+    "name_saved": "Спасибо, сохранила. Теперь выбери день недели:",
     "no_slots": "К сожалению, свободных мест сейчас нет. Напиши куратору или в поддержку.",
     "confirmed": (
         "Готово. Ты записан на тьюторские сессии раз в 2 недели: <b>{day} в {time}</b>.\n\n"
@@ -70,9 +75,10 @@ TEXTS = {
     "curator_no_link": "Ссылка на куратора не настроена. Обратись к организаторам курса.",
     "reset_done": "Готово. Твоя запись сброшена. Нажми /start — увидишь приветствие и сможешь записаться заново.",
     "list_header": "📋 Записи на тьюторские сессии ({count} чел.):\n\n",
-    "list_line": "• ID {user_id} — {day} {time}\n",
+    "list_line": "• {full_name} (ID {user_id}) — {day} {time}\n",
     "list_empty": "Пока ни одной записи.",
     "list_denied": "Эта команда только для администратора.",
+    "clear_done": "Готово. Все записи и профили очищены.",
     "btn_back_menu": "← В меню",
     "btn_back_days": "← К дням",
 }
@@ -88,6 +94,17 @@ def _admin_ids():
         if s.isdigit():
             ids.add(int(s))
     return ids
+
+
+def _normalize_full_name(text: str) -> str:
+    """Нормализует ФИО: убирает лишние пробелы."""
+    return " ".join((text or "").strip().split())
+
+
+def _is_valid_full_name(full_name: str) -> bool:
+    """Проверка, что введены имя и фамилия (минимум 2 слова)."""
+    parts = full_name.split()
+    return len(parts) >= 2 and all(len(p) >= 2 for p in parts)
 
 
 def next_occurrence(day_name: str, time_str: str, after: datetime) -> datetime:
@@ -244,6 +261,12 @@ async def button_choose_time(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Показать выбор дня недели."""
     query = update.callback_query
     await query.answer()
+    user_id = update.effective_user.id if update.effective_user else 0
+    if not storage.get_user_name(user_id):
+        context.user_data["awaiting_full_name"] = True
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton(TEXTS["btn_back_menu"], callback_data="back_to_start")]])
+        await query.edit_message_text(TEXTS["ask_name"], reply_markup=kb)
+        return
     text, keyboard = _days_keyboard()
     await query.edit_message_text(text, reply_markup=keyboard)
 
@@ -341,6 +364,22 @@ async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(TEXTS["reset_done"])
 
 
+async def full_name_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обрабатывает ввод имени/фамилии перед выбором слота."""
+    if not context.user_data.get("awaiting_full_name"):
+        return
+    user_id = update.effective_user.id if update.effective_user else 0
+    full_name = _normalize_full_name(update.message.text if update.message else "")
+    if not _is_valid_full_name(full_name):
+        await update.message.reply_text(TEXTS["ask_name_invalid"])
+        return
+    storage.save_user_name(user_id, full_name)
+    context.user_data["awaiting_full_name"] = False
+    text, keyboard = _days_keyboard()
+    await update.message.reply_text(TEXTS["name_saved"])
+    await update.message.reply_text(text, reply_markup=keyboard)
+
+
 async def zapisi_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /zapisi: список всех записей (только для админов из ADMIN_IDS)."""
     user_id = update.effective_user.id if update.effective_user else 0
@@ -364,9 +403,27 @@ async def zapisi_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         slot = slots_by_id.get(b["slot_id"], {})
         day = slot.get("day", "?")
         time = slot.get("time", "?")
-        lines.append(TEXTS["list_line"].format(user_id=b["user_id"], day=day, time=time))
+        full_name = b.get("full_name", "").strip() or "Без имени"
+        lines.append(
+            TEXTS["list_line"].format(
+                user_id=b["user_id"],
+                full_name=full_name,
+                day=day,
+                time=time,
+            )
+        )
     text = "".join(lines).strip()
     await update.message.reply_text(text)
+
+
+async def clearall_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /clearall: очистить все записи (только для админов)."""
+    user_id = update.effective_user.id if update.effective_user else 0
+    if user_id not in _admin_ids():
+        await update.message.reply_text(TEXTS["list_denied"])
+        return
+    storage.clear_all_data()
+    await update.message.reply_text(TEXTS["clear_done"])
 
 
 def main() -> None:
@@ -381,6 +438,8 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("reset", reset_cmd))
     app.add_handler(CommandHandler("zapisi", zapisi_cmd))
+    app.add_handler(CommandHandler("clearall", clearall_cmd))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, full_name_message))
     app.add_handler(CallbackQueryHandler(button_choose_time, pattern="^choose_time$"))
     app.add_handler(CallbackQueryHandler(button_day_selected, pattern="^day:"))
     app.add_handler(CallbackQueryHandler(button_back_to_days, pattern="^back_to_days$"))
