@@ -26,5 +26,11 @@
   {"id": "thu_18_c", "day": "четверг", "time": "18:00", "capacity": 1},
   {"id": "thu_1830_b", "day": "четверг", "time": "18:30", "capacity": 1},
   {"id": "thu_19_b", "day": "четверг", "time": "19:00", "capacity": 1},
-  {"id": "thu_1930_b", "day": "четверг", "time": "19:30", "capacity": 1}
+  {"id": "thu_1930_b", "day": "четверг", "time": "19:30", "capacity": 1},
+
+  {"id": "sat_9_d", "day": "суббота", "time": "09:00", "capacity": 1},
+  {"id": "sat_930_d", "day": "суббота", "time": "09:30", "capacity": 1},
+  {"id": "sat_10_d", "day": "суббота", "time": "10:00", "capacity": 1},
+  {"id": "sun_18_d", "day": "воскресенье", "time": "18:00", "capacity": 1},
+  {"id": "sun_1930_d", "day": "воскресенье", "time": "19:30", "capacity": 1}
 ]
