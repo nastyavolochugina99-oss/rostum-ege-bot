@@ -80,6 +80,9 @@ TEXTS = {
     "list_empty": "Пока ни одной записи.",
     "list_denied": "Эта команда только для администратора.",
     "clear_done": "Готово. Все записи и профили очищены.",
+    "reset_user_done": "Запись пользователя {user_id} сброшена.",
+    "reset_user_usage": "Использование: /reset_user <user_id> — сбросить запись конкретного пользователя.",
+    "reset_user_not_found": "У пользователя {user_id} нет записи.",
     "btn_back_menu": "← В меню",
     "btn_back_days": "← К дням",
 }
@@ -436,6 +439,25 @@ async def clearall_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(TEXTS["clear_done"])
 
 
+async def reset_user_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /reset_user <user_id>: сбросить запись конкретного пользователя (только для админов)."""
+    admin_id = update.effective_user.id if update.effective_user else 0
+    if admin_id not in _admin_ids():
+        await update.message.reply_text(TEXTS["list_denied"])
+        return
+    args = (context.args or [])
+    if len(args) != 1 or not args[0].strip().isdigit():
+        await update.message.reply_text(TEXTS["reset_user_usage"])
+        return
+    target_user_id = int(args[0].strip())
+    booking = storage.get_user_booking(target_user_id)
+    if not booking:
+        await update.message.reply_text(TEXTS["reset_user_not_found"].format(user_id=target_user_id))
+        return
+    storage.delete_booking(target_user_id)
+    await update.message.reply_text(TEXTS["reset_user_done"].format(user_id=target_user_id))
+
+
 def main() -> None:
     token = os.getenv("BOT_TOKEN")
     if not token:
@@ -449,6 +471,7 @@ def main() -> None:
     app.add_handler(CommandHandler("reset", reset_cmd))
     app.add_handler(CommandHandler("zapisi", zapisi_cmd))
     app.add_handler(CommandHandler("clearall", clearall_cmd))
+    app.add_handler(CommandHandler("reset_user", reset_user_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, full_name_message))
     app.add_handler(CallbackQueryHandler(button_choose_time, pattern="^choose_time$"))
     app.add_handler(CallbackQueryHandler(button_day_selected, pattern="^day:"))
