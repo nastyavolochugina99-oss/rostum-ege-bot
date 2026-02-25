@@ -67,10 +67,11 @@ TEXTS = {
     "confirmed": (
         "Готово. Ты записан на тьюторские сессии раз в 2 недели: <b>{day} в {time}</b>.\n\n"
         "Ближайшая сессия: {next_date}. Продолжительность — 30 минут.\n"
-        "Тьютор будет назначен; тебе придёт напоминание перед встречей."
+        "Тебе придёт напоминание перед встречей, а тьютор напишет лично, "
+        "чтобы договориться о платформе, на которой тебе будет удобно встречаться."
     ),
     "error": "Что-то пошло не так. Попробуй ещё раз или напиши куратору.",
-    "reminder": "Завтра сессия с тьютором.",
+    "reminder": "{first_name}, у тебя завтра сессия с тьютором.",
     "btn_curator": "Написать куратору",
     "curator_no_link": "Ссылка на куратора не настроена. Обратись к организаторам курса.",
     "reset_done": "Готово. Твоя запись сброшена. Нажми /start — увидишь приветствие и сможешь записаться заново.",
@@ -105,6 +106,14 @@ def _is_valid_full_name(full_name: str) -> bool:
     """Проверка, что введены имя и фамилия (минимум 2 слова)."""
     parts = full_name.split()
     return len(parts) >= 2 and all(len(p) >= 2 for p in parts)
+
+
+def _first_name(full_name: str) -> str:
+    """Берёт первое слово из ФИО для персонального обращения."""
+    normalized = _normalize_full_name(full_name)
+    if not normalized:
+        return "Привет"
+    return normalized.split()[0]
 
 
 def next_occurrence(day_name: str, time_str: str, after: datetime) -> datetime:
@@ -174,9 +183,10 @@ async def send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         if not is_session_day_tomorrow(slot["day"], slot["time"], row["created_at"], tomorrow):
             continue
         try:
+            first_name = _first_name(row.get("full_name", ""))
             await context.bot.send_message(
                 chat_id=row["user_id"],
-                text=TEXTS["reminder"],
+                text=TEXTS["reminder"].format(first_name=first_name),
             )
         except Exception as e:
             logger.warning("Не удалось отправить напоминание user_id=%s: %s", row["user_id"], e)
