@@ -115,10 +115,10 @@ def _tutor_key_from_slot_id(slot_id: str):
 def _tutor_limits():
     """
     Лимиты учеников по тьюторам.
-    Формат env: TUTOR_LIMITS=a:4,b:3,c:3,d:4
-    По умолчанию: a=4, b=3, c=3, d=4.
+    Формат env: TUTOR_LIMITS=a:4,b:3,c:2,d:4
+    По умолчанию: a=4, b=3, c=2 (Аня), d=4.
     """
-    raw = os.getenv("TUTOR_LIMITS", "a:4,b:3,c:3,d:4").strip()
+    raw = os.getenv("TUTOR_LIMITS", "a:4,b:3,c:2,d:4").strip()
     result = {}
     if not raw:
         return result
