@@ -6,7 +6,7 @@ Telegram-бот для записи на тьюторские сессии (Ро
 
 import os
 import logging
-from datetime import datetime, timedelta, time as dt_time, timezone
+from datetime import datetime, timedelta, time as dt_time, timezone, date as dt_date
 
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -45,6 +45,18 @@ def _cycle_start_date() -> datetime.date:
             raw,
         )
         return datetime(2026, 3, 2).date()
+
+
+# Дополнительные ограничения по датам для тьюторов (чёрные даты, когда тьютор не ведёт сессии).
+# Ключ — суффикс тьютора в id слота: ..._a / ..._b / ..._c / ..._d.
+TUTOR_BLACKOUT_DATES: dict[str, set[dt_date]] = {
+    # Галина Алексеевна: первые возможные по расписанию сессии (5 и 6 марта 2026) пропускаем,
+    # чтобы старт был только с 19–20 марта.
+    "a": {
+        dt_date(2026, 3, 5),
+        dt_date(2026, 3, 6),
+    },
+}
 
 # Тексты (можно вынести в конфиг)
 TEXTS = {
@@ -158,7 +170,23 @@ def next_occurrence(day_name: str, time_str: str, after: datetime) -> datetime:
     return candidate_dt
 
 
-def is_session_day_tomorrow(slot_day: str, slot_time: str, created_at_iso: str, tomorrow_date) -> bool:
+def _next_session_with_blackout(slot_id: str, slot_day: str, slot_time: str, after: datetime) -> datetime:
+    """
+    Ближайшая дата/время с учётом чёрных дат тьютора (если заданы).
+    """
+    base_dt = next_occurrence(slot_day, slot_time, after)
+    tutor_key = storage._tutor_key_from_slot_id(slot_id)  # type: ignore[attr-defined]
+    if not tutor_key:
+        return base_dt
+    blackout = TUTOR_BLACKOUT_DATES.get(tutor_key, set())
+    period = timedelta(days=14)
+    dt = base_dt
+    while dt.date() in blackout:
+        dt += period
+    return dt
+
+
+def is_session_day_tomorrow(slot_id: str, slot_day: str, slot_time: str, created_at_iso: str, tomorrow_date) -> bool:
     """
     Сессии раз в 2 недели. Завтра — день сессии для этой записи?
     """
@@ -168,7 +196,7 @@ def is_session_day_tomorrow(slot_day: str, slot_time: str, created_at_iso: str, 
             created_at = created_at.replace(tzinfo=None)
     except (ValueError, TypeError):
         return False
-    first_session_dt = next_occurrence(slot_day, slot_time, created_at)
+    first_session_dt = _next_session_with_blackout(slot_id, slot_day, slot_time, created_at)
     first_date = first_session_dt.date()
     delta = (tomorrow_date - first_date).days
     return delta >= 0 and delta % 14 == 0
@@ -183,7 +211,7 @@ async def send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         slot = slots_by_id.get(row["slot_id"])
         if not slot:
             continue
-        if not is_session_day_tomorrow(slot["day"], slot["time"], row["created_at"], tomorrow):
+        if not is_session_day_tomorrow(row["slot_id"], slot["day"], slot["time"], row["created_at"], tomorrow):
             continue
         try:
             first_name = _first_name(row.get("full_name", ""))
@@ -349,7 +377,7 @@ async def button_slot_selected(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.edit_message_text(TEXTS["no_slots"])
             return
     now = datetime.utcnow()
-    next_dt = next_occurrence(slot["day"], slot["time"], now)
+    next_dt = _next_session_with_blackout(slot_id, slot["day"], slot["time"], now)
     next_date = next_dt.strftime("%d.%m.%Y")
 
     text = TEXTS["confirmed"].format(
